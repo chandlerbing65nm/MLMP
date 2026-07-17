@@ -1,5 +1,8 @@
+import os
 import ovss.clip as clip
 from ovss.clip import tokenize as clip_tokenize
+
+CLIP_DOWNLOAD_ROOT = os.environ.get("CLIP_DOWNLOAD_ROOT", "/scratch/project_465002853/clip_cache_doloriel")
 
 
 def load_ovss(ovss_type, ovss_backbone, device='cpu'):
@@ -14,11 +17,13 @@ def load_ovss(ovss_type, ovss_backbone, device='cpu'):
     Returns:
         ovss_model: Loaded OVSS model.
     """
+    os.makedirs(CLIP_DOWNLOAD_ROOT, exist_ok=True)
+
     if ovss_type == 'clip':
         arch = "vanilla"
         attn_strategy = "vanilla"
         gaussian_std = 5.0
-        ovss_model, _ = clip.load(ovss_backbone, device)
+        ovss_model, _ = clip.load(ovss_backbone, device, download_root=CLIP_DOWNLOAD_ROOT)
         ovss_model.visual.set_params(arch, attn_strategy, gaussian_std)
         tokenize = clip_tokenize
 
@@ -26,7 +31,7 @@ def load_ovss(ovss_type, ovss_backbone, device='cpu'):
         arch = "vanilla"
         attn_strategy = "csa"
         gaussian_std = 5.0
-        ovss_model, _ = clip.load(ovss_backbone, device)
+        ovss_model, _ = clip.load(ovss_backbone, device, download_root=CLIP_DOWNLOAD_ROOT)
         ovss_model.visual.set_params(arch, attn_strategy, gaussian_std)
         tokenize = clip_tokenize
 
@@ -34,7 +39,7 @@ def load_ovss(ovss_type, ovss_backbone, device='cpu'):
         arch = "reduced"
         attn_strategy = "naclip"
         gaussian_std = 5.0
-        ovss_model, _ = clip.load(ovss_backbone, device)
+        ovss_model, _ = clip.load(ovss_backbone, device, download_root=CLIP_DOWNLOAD_ROOT)
         ovss_model.visual.set_params(arch, attn_strategy, gaussian_std)
         tokenize = clip_tokenize
 

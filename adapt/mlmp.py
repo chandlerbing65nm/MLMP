@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from ovss import load_ovss
+from optim import get_optimizer
 from utils.misc import load_prompts_from_yaml, print_clip_parameters, print_optimizer_parameters
 
 REFERENCE_PROMPT = 'a photo of a {}'
@@ -21,7 +22,7 @@ class MLMP:
 
     def __init__(self, ovss_type, ovss_backbone, lr, classes, vision_outputs=(-1,), 
                  alpha_cls=0.0, steps=10, prompt_dir='prompts.yaml', 
-                 prompt_integration='loss', runtime_calculation=False,
+                 prompt_integration='loss', runtime_calculation=False, optimizer='adam', reset_mode='episodic',
                  device='cpu',
                  ):
         """
@@ -56,6 +57,8 @@ class MLMP:
         self.steps = steps
         self.prompt_dir = prompt_dir
         self.runtime = runtime_calculation
+        self.optimizer_name = optimizer
+        self.reset_mode = reset_mode
         self.device = device
 
 
@@ -88,7 +91,7 @@ class MLMP:
         print_clip_parameters(self.model)
 
         # Set the optimizer
-        self.optimizer = optim.Adam(params, lr=self.lr, betas=(0.9, 0.999), weight_decay=0.0)
+        self.optimizer = get_optimizer(params, optimizer_name=self.optimizer_name, lr=self.lr)
 
         # print the parameters passed to the optimizer
         print_optimizer_parameters(self.optimizer, self.model)
@@ -116,7 +119,8 @@ class MLMP:
             List[float]: Loss values recorded at each adaptation iteration.
         """
 
-        self.reset()
+        if self.reset_mode == 'episodic':
+            self.reset()
         loss_report = self.perform_adaptation(x)
         return loss_report
 

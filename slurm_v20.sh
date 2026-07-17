@@ -1,0 +1,166 @@
+#!/bin/bash
+
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem-per-cpu=4G
+#SBATCH --gpus-per-node=1
+#SBATCH --nodes=1
+#SBATCH --partition=small-g
+#SBATCH --time=24:00:00
+#SBATCH --account=project_465002853
+#SBATCH --output=logs/voc20/output_%j.txt
+
+# Use node-local scratch for MIOpen DB (avoid Lustre/NFS locking issues)
+MIOPEN_LOCAL="${SLURM_TMPDIR:-${TMPDIR:-/tmp}}/${USER}/miopen-${SLURM_JOB_ID}"
+export MIOPEN_USER_DB_PATH="$MIOPEN_LOCAL"
+export MIOPEN_CUSTOM_CACHE_DIR="$MIOPEN_LOCAL"
+mkdir -p "$MIOPEN_LOCAL"
+export MIOPEN_DISABLE_CACHE=1
+export MIOPEN_FIND_MODE=1
+
+# Activate conda in non-interactive shells and activate the env
+source /scratch/project_465002853/miniconda3/etc/profile.d/conda.sh
+conda activate clip
+
+# Hugging Face cache in a directory you own
+export HF_HOME="/scratch/project_465002853/hf_cache_${USER}"
+mkdir -p "$HF_HOME"
+export HF_HUB_DISABLE_TELEMETRY=1
+
+
+cd /flash/project_465002853/projects/mlmp
+
+mkdir -p logs/voc20
+
+# # ========== SOURCE ==========
+# python main.py \
+#     --ovss_type naclip \
+#     --ovss_backbone ViT-L/14 \
+#     --save_dir .save/PascalVOC20Dataset/No_Adaptation/ \
+#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
+#     --dataset PascalVOC20Dataset \
+#     --workers 4 \
+#     --init_resize 224 224 \
+#     --patch_size 224 224 \
+#     --patch_stride 112 \
+#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
+#     --steps 1 \
+#     --batch-size 1 \
+#     --trials 1 \
+#     --seed 0 \
+#     --class_extensions \
+#     --reset_mode continual \
+#     --lifelong shuffle_domain_pbatch \
+#     --lifelong_rnds 3 \
+
+# # ========== TENT ==========
+# python main.py \
+#     --adapt \
+#     --method tent \
+#     --ovss_type naclip \
+#     --ovss_backbone ViT-L/14 \
+#     --save_dir .save/PascalVOC20Dataset/tent/ \
+#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
+#     --dataset PascalVOC20Dataset \
+#     --workers 4 \
+#     --init_resize 224 224 \
+#     --patch_size 224 224 \
+#     --patch_stride 112 \
+#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
+#     --lr 1e-5 \
+#     --optimizer sgd  \
+#     --steps 1 \
+#     --batch-size 1 \
+#     --trials 1 \
+#     --seed 0 \
+#     --plot_loss \
+#     --class_extensions \
+#     --reset_mode continual \
+#     --lifelong shuffle_domain_pbatch \
+#     --lifelong_rnds 3 \
+
+# # ========== WATT ==========
+# python main.py \
+#     --adapt \
+#     --method watt \
+#     --prompt_dir prompts.yaml \
+#     --watt_l 2 \
+#     --watt_m 5 \
+#     --ovss_type naclip \
+#     --ovss_backbone ViT-L/14 \
+#     --save_dir .save/PascalVOC20Dataset/watt/ \
+#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
+#     --dataset PascalVOC20Dataset \
+#     --workers 4 \
+#     --init_resize 224 224 \
+#     --patch_size 224 224 \
+#     --patch_stride 112 \
+#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
+#     --lr 1e-6 \
+#     --optimizer sgd  \
+#     --steps 1 \
+#     --batch-size 1 \
+#     --trials 1 \
+#     --seed 0 \
+#     --plot_loss \
+#     --class_extensions \
+#     --reset_mode continual \
+#     --lifelong shuffle_domain_pbatch \
+#     --lifelong_rnds 3 \
+
+# # ========== CLIPArTT ==========
+# python main.py \
+#     --adapt \
+#     --method clipartt \
+#     --clipartt_k 3 \
+#     --ovss_type naclip \
+#     --ovss_backbone ViT-L/14 \
+#     --save_dir .save/PascalVOC20Dataset/clipartt/ \
+#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
+#     --dataset PascalVOC20Dataset \
+#     --workers 4 \
+#     --init_resize 224 224 \
+#     --patch_size 224 224 \
+#     --patch_stride 112 \
+#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
+#     --lr 1e-6 \
+#     --optimizer adamw  \
+#     --steps 1 \
+#     --batch-size 1 \
+#     --trials 1 \
+#     --seed 0 \
+#     --plot_loss \
+#     --class_extensions \
+#     --reset_mode continual \
+#     --lifelong shuffle_domain_pbatch \
+#     --lifelong_rnds 3 \
+
+# # ========== MLMP ==========
+# python main.py \
+#     --adapt \
+#     --method mlmp \
+#     --prompt_dir prompts.yaml \
+#     --vision_outputs -1 -2 -3 -4 -5 -6 -7 -8 -9 -10 -11 -12 -13 -14 -15 -16 -17 -18 \
+#     --alpha_cls 1.0 \
+#     --ovss_type naclip \
+#     --ovss_backbone ViT-L/14 \
+#     --save_dir .save/PascalVOC20Dataset/mlmp/ \
+#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
+#     --dataset PascalVOC20Dataset \
+#     --workers 4 \
+#     --init_resize 224 224 \
+#     --patch_size 224 224 \
+#     --patch_stride 112 \
+#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
+#     --lr 1e-5 \
+#     --optimizer sgd  \
+#     --steps 1 \
+#     --batch-size 1 \
+#     --trials 1 \
+#     --seed 0 \
+#     --plot_loss \
+#     --class_extensions \
+#     --reset_mode continual \
+#     --lifelong shuffle_domain_pbatch \
+#     --lifelong_rnds 3 \

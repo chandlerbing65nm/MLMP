@@ -8,6 +8,7 @@ import torch.optim as optim
 
 
 from ovss import load_ovss
+from optim import get_optimizer
 
 CLS_EOS_ID = 49407
 REFERENCE_PROMPT = 'a photo of a {}'
@@ -23,7 +24,7 @@ class TPT(nn.Module):
     """
 
     def __init__(self, ovss_type, ovss_backbone, classes, lr=5e-3, n_ctx=4, steps=1, 
-                 runtime_calculation=False, device= "cuda",
+                 runtime_calculation=False, optimizer='adam', reset_mode='episodic', device= "cuda",
                  ):
         """
         Initialize the TPT adaptation module.
@@ -55,6 +56,8 @@ class TPT(nn.Module):
         self.steps = steps
         self.prompt = REFERENCE_PROMPT
         self.runtime = runtime_calculation
+        self.optimizer_name = optimizer
+        self.reset_mode = reset_mode
         self.device = device
 
         # ---------- OVSS Model ----------
@@ -70,7 +73,7 @@ class TPT(nn.Module):
         self.D = self.ctx.shape[1]
 
         # ---------- optimiser ----------
-        self.optimizer = optim.Adam([self.ctx], lr=self.lr, betas=(0.9, 0.999), weight_decay=0.0)
+        self.optimizer = get_optimizer([self.ctx], optimizer_name=self.optimizer_name, lr=self.lr)
 
         # ---------- save pristine state for reset() ----------
         self._clean_state = {
@@ -197,7 +200,8 @@ class TPT(nn.Module):
             List[float]: Loss values recorded at each adaptation iteration.
         """
         
-        self.reset()
+        if self.reset_mode == 'episodic':
+            self.reset()
         loss_report = []
         images = images.to(self.device)
         t0 = time.time()
