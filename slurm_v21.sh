@@ -51,6 +51,10 @@ mkdir -p logs/voc21
 #     --seed 0 \
 #     --class_extensions \
 #     --reset_mode continual \
+#     --domain_gen False \
+#     --domain_gen_num 5 \
+#     --lifelong None \
+#     --lifelong_rnds 3 \
 
 # # ========== TENT ==========
 # python main.py \
@@ -75,7 +79,9 @@ mkdir -p logs/voc21
 #     --plot_loss \
 #     --class_extensions \
 #     --reset_mode continual \
-#     --lifelong shuffle_domain_pbatch \
+#     --domain_gen False \
+#     --domain_gen_num 5 \
+#     --lifelong None \
 #     --lifelong_rnds 3 \
 
 # # ========== WATT ==========
@@ -104,7 +110,9 @@ mkdir -p logs/voc21
 #     --plot_loss \
 #     --class_extensions \
 #     --reset_mode continual \
-#     --lifelong shuffle_domain_pbatch \
+#     --domain_gen False \
+#     --domain_gen_num 5 \
+#     --lifelong None \
 #     --lifelong_rnds 3 \
 
 # # ========== CLIPArTT ==========
@@ -131,8 +139,11 @@ mkdir -p logs/voc21
 #     --plot_loss \
 #     --class_extensions \
 #     --reset_mode continual \
-#     --lifelong shuffle_domain_pbatch \
+#     --domain_gen False \
+#     --domain_gen_num 5 \
+#     --lifelong shuffle_domain_pround \
 #     --lifelong_rnds 3 \
+#     --resume_tta
 
 # # ========== MLMP ==========
 # python main.py \
@@ -160,5 +171,7 @@ mkdir -p logs/voc21
 #     --plot_loss \
 #     --class_extensions \
 #     --reset_mode continual \
-#     --lifelong shuffle_domain_pbatch \
+#     --domain_gen False \
+#     --domain_gen_num 5 \
+#     --lifelong None \
 #     --lifelong_rnds 3 \

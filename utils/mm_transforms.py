@@ -57,6 +57,45 @@ class CorruptTransform(BaseTransform):
     
 
 @TRANSFORMS.register_module()
+class LoadSUIMAnnotations(BaseTransform):
+    def __init__(self, ignore_index=255, drop_background=False):
+        super().__init__()
+        self.ignore_index = ignore_index
+        self.drop_background = drop_background
+        self.color_to_label = {
+            (0, 0, 0): 0,
+            (0, 255, 0): 0,
+            (255, 255, 255): 0,
+            (0, 0, 255): 1,
+            (0, 255, 255): 2,
+            (255, 0, 0): 3,
+            (255, 0, 255): 4,
+            (255, 255, 0): 5,
+        }
+
+    def transform(self, results: dict) -> dict:
+        img_bytes = fileio.get(results['seg_map_path'], backend_args=results.get('backend_args', None))
+        gt_seg_map = mmcv.imfrombytes(img_bytes, flag='color', channel_order='rgb').astype(np.uint8)
+
+        decoded_seg_map = np.full(gt_seg_map.shape[:2], self.ignore_index, dtype=np.uint8)
+        for color, label in self.color_to_label.items():
+            decoded_seg_map[np.all(gt_seg_map == np.array(color, dtype=np.uint8), axis=-1)] = label
+
+        if np.any(decoded_seg_map == self.ignore_index):
+            unknown_colors = np.unique(gt_seg_map[decoded_seg_map == self.ignore_index], axis=0)
+            raise ValueError(f"Unknown SUIM mask colors found in {results['seg_map_path']}: {unknown_colors.tolist()}")
+
+        if self.drop_background:
+            foreground_mask = decoded_seg_map != 0
+            decoded_seg_map[foreground_mask] = decoded_seg_map[foreground_mask] - 1
+            decoded_seg_map[~foreground_mask] = self.ignore_index
+
+        results['gt_seg_map'] = decoded_seg_map
+        results['seg_fields'] = ['gt_seg_map']
+        return results
+
+
+@TRANSFORMS.register_module()
 class ResizeAndPatchify(BaseTransform):
     """
     ResizeAndPatchify is a transformation class that resizes an image and its corresponding segmentation map, 
@@ -102,6 +141,7 @@ class ResizeAndPatchify(BaseTransform):
         if self.resize:
             # Determine target resize dimensions based on orientation
             target_size = self.resize if w > h else self.resize[::-1]
+            target_patch_size = self.patch_size if w > h else self.patch_size[::-1]
             # Resize the image and segmentation map
             resized_img, w_scale, h_scale = mmcv.imresize(img, 
                                                         target_size,
@@ -124,12 +164,12 @@ class ResizeAndPatchify(BaseTransform):
 
             # Calculate the number of patches in each dimension
             target_h, target_w = resized_img.shape[:2]
-            num_patches_y = (target_h - self.patch_size[1]) // self.patch_stride + 1
-            num_patches_x = (target_w - self.patch_size[0]) // self.patch_stride + 1
+            num_patches_y = (target_h - target_patch_size[1]) // self.patch_stride + 1
+            num_patches_x = (target_w - target_patch_size[0]) // self.patch_stride + 1
 
             # Define the patch shape and strides for both image and segmentation map
-            img_shape = (num_patches_y, num_patches_x, self.patch_size[1], self.patch_size[0], resized_img.shape[2])
-            seg_map_shape = (num_patches_y, num_patches_x, self.patch_size[1], self.patch_size[0])
+            img_shape = (num_patches_y, num_patches_x, target_patch_size[1], target_patch_size[0], resized_img.shape[2])
+            seg_map_shape = (num_patches_y, num_patches_x, target_patch_size[1], target_patch_size[0])
 
             img_strides = (
                 resized_img.strides[0] * self.patch_stride,
@@ -148,10 +188,10 @@ class ResizeAndPatchify(BaseTransform):
 
             # Extract patches for image and segmentation map using strided views
             img_patches = np.lib.stride_tricks.as_strided(resized_img, shape=img_shape, strides=img_strides)
-            img_patches = img_patches.reshape(-1, self.patch_size[1], self.patch_size[0], resized_img.shape[2])
+            img_patches = img_patches.reshape(-1, target_patch_size[1], target_patch_size[0], resized_img.shape[2])
 
             gt_seg_map_patches = np.lib.stride_tricks.as_strided(resized_seg_map, shape=seg_map_shape, strides=seg_map_strides)
-            gt_seg_map_patches = gt_seg_map_patches.reshape(-1, self.patch_size[1], self.patch_size[0])
+            gt_seg_map_patches = gt_seg_map_patches.reshape(-1, target_patch_size[1], target_patch_size[0])
 
             # Update results with patches for both image and segmentation map
             results['patches'] = img_patches  # Shape (num_patches, 224, 224, channels)

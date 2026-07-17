@@ -1,5 +1,5 @@
 # Standard
-import os, time, argparse
+import os, time, argparse, copy, json, hashlib
 
 # Third-party
 import torch
@@ -78,7 +78,8 @@ def argparser():
         choices=(
             'COCOStuffDataset', 'COCOObjectDataset', 'CityscapesDataset',
             'PascalVOC20Dataset', 'PascalVOC21Dataset',
-            'PascalContext59Dataset', 'PascalContext60Dataset'
+            'PascalContext59Dataset', 'PascalContext60Dataset', 'SUIM6Dataset', 'SUIM5Dataset',
+            'DUTUSEG5Dataset', 'DUTUSEG4Dataset'
         ),
         help='Which dataset to load'
     )
@@ -188,9 +189,14 @@ def argparser():
         help='Number of last domains to hold out from adaptation for domain generalization evaluation'
     )
     parser.add_argument(
+        '--resume_tta',
+        action='store_true',
+        help='Resume a previously interrupted TTA run from the last fully completed domain; works for standard TTA, --domain_gen, and --lifelong shuffle_domain_pround, but not --lifelong shuffle_domain_pbatch'
+    )
+    parser.add_argument(
         '--batch_size', '--batch-size',
         type=int,
-        default=128,
+        default=1,
         dest='batch_size',
         help='Batch size for adaptation'
     )
@@ -210,13 +216,13 @@ def argparser():
     parser.add_argument(
         '--steps',
         type=int,
-        default=10,
+        default=1,
         help='Number of adaptation iterations per batch'
     )
     parser.add_argument(
         '--trials',
         type=int,
-        default=3,
+        default=1,
         help='Number of experimental repetitions'
     )
     
@@ -302,6 +308,203 @@ def add_method_specific_args(parser, method):
     return parser
 
 
+def build_resume_signature(args):
+    return {
+        'dataset': args.dataset,
+        'data_dir': args.data_dir,
+        'save_dir': args.save_dir,
+        'method': args.method,
+        'adapt': args.adapt,
+        'reset_mode': args.reset_mode,
+        'lifelong': args.lifelong,
+        'lifelong_rnds': args.lifelong_rnds,
+        'domain_gen': args.domain_gen,
+        'domain_gen_num': args.domain_gen_num,
+        'corruptions_list': list(args.corruptions_list) if args.corruptions_list is not None else None,
+        'trials': args.trials,
+        'seed': args.seed,
+        'batch_size': args.batch_size,
+        'steps': args.steps,
+        'lr': args.lr,
+        'optimizer': args.optimizer,
+        'ovss_type': args.ovss_type,
+        'ovss_backbone': args.ovss_backbone,
+        'class_extensions': args.class_extensions,
+        'init_resize': list(args.init_resize) if args.init_resize is not None else None,
+        'patch_size': list(args.patch_size) if args.patch_size is not None else None,
+        'patch_stride': args.patch_stride,
+        'prompt_dir': args.prompt_dir,
+    }
+
+
+def get_resume_signature_key(args):
+    signature_json = json.dumps(build_resume_signature(args), sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(signature_json.encode('utf-8')).hexdigest()[:16]
+
+
+def get_resume_checkpoint_path(args):
+    signature_key = get_resume_signature_key(args)
+    return os.path.join(args.save_dir, f"resume_tta_{signature_key}.pt")
+
+
+def get_legacy_resume_checkpoint_path(args):
+    return os.path.join(args.save_dir, "resume_tta.pt")
+
+
+def clone_to_cpu(value):
+    if torch.is_tensor(value):
+        return value.detach().cpu().clone()
+    if isinstance(value, dict):
+        return {k: clone_to_cpu(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [clone_to_cpu(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(clone_to_cpu(v) for v in value)
+    return copy.deepcopy(value)
+
+
+def move_to_device(value, device):
+    if torch.is_tensor(value):
+        return value.to(device)
+    if isinstance(value, dict):
+        return {k: move_to_device(v, device) for k, v in value.items()}
+    if isinstance(value, list):
+        return [move_to_device(v, device) for v in value]
+    if isinstance(value, tuple):
+        return tuple(move_to_device(v, device) for v in value)
+    return value
+
+
+def get_method_device(adapt_method):
+    if hasattr(adapt_method, 'ctx'):
+        return adapt_method.ctx.device
+    if hasattr(adapt_method, 'model'):
+        return next(adapt_method.model.parameters()).device
+    return torch.device('cpu')
+
+
+def capture_method_state(adapt_method):
+    state = {}
+
+    if hasattr(adapt_method, 'model'):
+        state['model_state'] = clone_to_cpu(adapt_method.model.state_dict())
+    if hasattr(adapt_method, 'optimizer'):
+        state['optimizer_state'] = clone_to_cpu(adapt_method.optimizer.state_dict())
+    if hasattr(adapt_method, 'ctx'):
+        state['ctx'] = adapt_method.ctx.detach().cpu().clone()
+    if hasattr(adapt_method, 'adapt_times'):
+        state['adapt_times'] = copy.deepcopy(adapt_method.adapt_times)
+    if hasattr(adapt_method, 'eval_times'):
+        state['eval_times'] = copy.deepcopy(adapt_method.eval_times)
+
+    return state
+
+
+def restore_method_state(adapt_method, method_state):
+    if not method_state:
+        return
+
+    if 'model_state' in method_state and hasattr(adapt_method, 'model'):
+        adapt_method.model.load_state_dict(method_state['model_state'], strict=True)
+
+    if 'ctx' in method_state and hasattr(adapt_method, 'ctx'):
+        adapt_method.ctx.data.copy_(method_state['ctx'].to(adapt_method.ctx.device))
+
+    if 'optimizer_state' in method_state and hasattr(adapt_method, 'optimizer'):
+        adapt_method.optimizer.load_state_dict(method_state['optimizer_state'])
+        optimizer_state = adapt_method.optimizer.state
+        optimizer_state_on_device = move_to_device(optimizer_state, get_method_device(adapt_method))
+        optimizer_state.clear()
+        optimizer_state.update(optimizer_state_on_device)
+
+    if 'adapt_times' in method_state and hasattr(adapt_method, 'adapt_times'):
+        adapt_method.adapt_times = copy.deepcopy(method_state['adapt_times'])
+
+    if 'eval_times' in method_state and hasattr(adapt_method, 'eval_times'):
+        adapt_method.eval_times = copy.deepcopy(method_state['eval_times'])
+
+
+def save_resume_checkpoint(args, mode, state):
+    checkpoint = {
+        'signature': build_resume_signature(args),
+        'mode': mode,
+        'state': clone_to_cpu(state),
+    }
+    checkpoint_path = get_resume_checkpoint_path(args)
+    tmp_path = checkpoint_path + '.tmp'
+    torch.save(checkpoint, tmp_path)
+    os.replace(tmp_path, checkpoint_path)
+
+
+def load_resume_checkpoint(args, mode):
+    if not args.resume_tta:
+        return None
+
+    checkpoint_path = get_resume_checkpoint_path(args)
+    legacy_checkpoint_path = get_legacy_resume_checkpoint_path(args)
+
+    if os.path.exists(checkpoint_path):
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    elif os.path.exists(legacy_checkpoint_path):
+        checkpoint = torch.load(legacy_checkpoint_path, map_location='cpu')
+        checkpoint_signature = checkpoint.get('signature')
+        current_signature = build_resume_signature(args)
+        if checkpoint_signature != current_signature:
+            print(
+                f"Found legacy resume checkpoint at {legacy_checkpoint_path}, but it does not match the current run configuration. Starting a new run."
+            )
+            return None
+        checkpoint_path = legacy_checkpoint_path
+    else:
+        print(f"No resume checkpoint found for this run at {checkpoint_path}. Starting a new run.")
+        return None
+
+    if checkpoint.get('mode') != mode:
+        raise ValueError(
+            f"Resume checkpoint mode mismatch: expected {mode}, found {checkpoint.get('mode')}"
+        )
+
+    checkpoint_signature = checkpoint.get('signature')
+    current_signature = build_resume_signature(args)
+    if checkpoint_signature != current_signature:
+        raise ValueError("Resume checkpoint arguments do not match the current run configuration")
+
+    print(f"Loaded resume checkpoint from {checkpoint_path}")
+    return checkpoint.get('state')
+
+
+def clear_resume_checkpoint(args):
+    checkpoint_path = get_resume_checkpoint_path(args)
+    if os.path.exists(checkpoint_path):
+        os.remove(checkpoint_path)
+
+
+def capture_domain_metric_state(domain_infos):
+    return {
+        domain_info['corruption']: {
+            'miou_seeds': copy.deepcopy(domain_info['miou_seeds']),
+            'dice_seeds': copy.deepcopy(domain_info['dice_seeds']),
+            'acc_seeds': copy.deepcopy(domain_info['acc_seeds']),
+            'loss_seed_report': clone_to_cpu(domain_info['loss_seed_report']),
+        }
+        for domain_info in domain_infos
+    }
+
+
+def restore_domain_metric_state(domain_infos, saved_state):
+    if not saved_state:
+        return
+
+    for domain_info in domain_infos:
+        corruption_state = saved_state.get(domain_info['corruption'])
+        if corruption_state is None:
+            continue
+        domain_info['miou_seeds'] = copy.deepcopy(corruption_state['miou_seeds'])
+        domain_info['dice_seeds'] = copy.deepcopy(corruption_state['dice_seeds'])
+        domain_info['acc_seeds'] = copy.deepcopy(corruption_state['acc_seeds'])
+        domain_info['loss_seed_report'] = clone_to_cpu(corruption_state['loss_seed_report'])
+
+
 def main(args):
 
     # Save the configuration settings
@@ -317,6 +520,9 @@ def main(args):
     all_results_path = os.path.join(args.save_dir, "results.txt")
     os.makedirs(os.path.dirname(all_results_path), exist_ok=True)
 
+    if args.resume_tta and args.lifelong == 'shuffle_domain_pbatch':
+        raise ValueError("--resume_tta does not support --lifelong shuffle_domain_pbatch")
+
     if args.domain_gen and args.lifelong != 'None':
         raise ValueError("--domain_gen only works when --lifelong is None")
 
@@ -329,14 +535,21 @@ def main(args):
         return
 
     # create necessary variables
-    all_results = dict()
+    resume_state = load_resume_checkpoint(args, 'standard')
+
+    all_results = copy.deepcopy(resume_state['all_results']) if resume_state else dict()
     headers = "mIoU, mDice, mAcc"
-    adapt_time_all_corr = []
-    eval_time_all_corr = []
+    adapt_time_all_corr = copy.deepcopy(resume_state['adapt_time_all_corr']) if resume_state else []
+    eval_time_all_corr = copy.deepcopy(resume_state['eval_time_all_corr']) if resume_state else []
     continual_methods = None
-    domain_summary = []
+    domain_summary = copy.deepcopy(resume_state['domain_summary']) if resume_state else []
+    continual_method_states = resume_state['continual_method_states'] if resume_state else None
+    start_domain_idx = resume_state['next_domain_idx'] if resume_state else 0
     
     for c_idx, corruption in enumerate(args.corruptions_list):
+        if c_idx < start_domain_idx:
+            continue
+
         data_loader, org_classes = segmentation_datasets.prepare_data(args.dataset, args.data_dir, args.init_resize,
                                                                   args.patch_size, args.patch_stride, corruption=corruption, 
                                                                   batch_size=args.batch_size, num_workers=args.workers)
@@ -360,6 +573,9 @@ def main(args):
             adapt_method = get_method(args, device)
         elif args.reset_mode == 'continual' and continual_methods is None:
             continual_methods = [get_method(args, device) for _ in range(args.trials)]
+            if continual_method_states is not None:
+                for method, method_state in zip(continual_methods, continual_method_states):
+                    restore_method_state(method, method_state)
 
         # Results path
         c_results_path = os.path.join(args.save_dir, f"{c_idx:02}_{corruption}", "results.txt")
@@ -541,6 +757,16 @@ def main(args):
             adapt_time_all_corr.append(mean_adapt_time)
             eval_time_all_corr.append(mean_eval_time)
 
+        checkpoint_state = {
+            'next_domain_idx': c_idx + 1,
+            'all_results': copy.deepcopy(all_results),
+            'domain_summary': copy.deepcopy(domain_summary),
+            'adapt_time_all_corr': copy.deepcopy(adapt_time_all_corr),
+            'eval_time_all_corr': copy.deepcopy(eval_time_all_corr),
+            'continual_method_states': [capture_method_state(method) for method in continual_methods] if continual_methods is not None else None,
+        }
+        save_resume_checkpoint(args, 'standard', checkpoint_state)
+
     total_duration = time.time() - start_time
     mean_duration_per_seed = total_duration / args.trials
     gpu_info = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
@@ -575,6 +801,8 @@ def main(args):
         f.write(f"Total Duration (s): {total_duration:.2f}\n")
         f.write(f"Mean Duration per Seed (s): {mean_duration_per_seed:.2f}\n")
 
+    clear_resume_checkpoint(args)
+
 
 def run_domain_gen(args, device, start_time, all_results_path):
     headers = "mIoU, mDice, mAcc"
@@ -582,6 +810,7 @@ def run_domain_gen(args, device, start_time, all_results_path):
     domain_summary = []
     adapt_time_all_corr = []
     eval_time_all_corr = []
+    resume_state = load_resume_checkpoint(args, 'domain_gen')
 
     holdout_count = min(args.domain_gen_num, len(args.corruptions_list))
     adapt_corruptions = set(args.corruptions_list[:-holdout_count]) if holdout_count > 0 else set(args.corruptions_list)
@@ -592,18 +821,34 @@ def run_domain_gen(args, device, start_time, all_results_path):
         domain_infos.append(prepare_domain_info(args, device, corruption, c_idx))
 
     args.classes = domain_infos[0]['classes']
+    restore_domain_metric_state(domain_infos, resume_state['domain_metric_state'] if resume_state else None)
+    adapt_time_all_corr = copy.deepcopy(resume_state['adapt_time_all_corr']) if resume_state else []
+    eval_time_all_corr = copy.deepcopy(resume_state['eval_time_all_corr']) if resume_state else []
 
     continual_methods = None
     if args.reset_mode == 'continual':
         continual_methods = [get_method(args, device) for _ in range(args.trials)]
 
-    for t in range(args.trials):
+    start_trial_idx = resume_state['trial_idx'] if resume_state else 0
+    resume_domain_idx = resume_state['next_domain_idx'] if resume_state else 0
+    resume_method_state = resume_state['method_state'] if resume_state else None
+
+    for t in range(start_trial_idx, args.trials):
         if args.reset_mode == 'continual':
             adapt_method = continual_methods[t]
+            if t == start_trial_idx and resume_method_state is not None:
+                restore_method_state(adapt_method, resume_method_state)
         else:
             adapt_method = get_method(args, device)
+            if t == start_trial_idx and resume_method_state is not None:
+                restore_method_state(adapt_method, resume_method_state)
 
-        for domain_info in domain_infos:
+        domain_start_idx = resume_domain_idx if t == start_trial_idx else 0
+
+        for domain_idx, domain_info in enumerate(domain_infos):
+            if domain_idx < domain_start_idx:
+                continue
+
             corruption = domain_info['corruption']
             should_adapt_domain = corruption in adapt_corruptions
 
@@ -699,6 +944,27 @@ def run_domain_gen(args, device, start_time, all_results_path):
                 adapt_time_all_corr.append(mean_adapt_time)
                 eval_time_all_corr.append(mean_eval_time)
 
+            next_trial_idx = t
+            next_domain_idx = domain_idx + 1
+            method_state = capture_method_state(adapt_method)
+            if next_domain_idx >= len(domain_infos):
+                next_trial_idx = t + 1
+                next_domain_idx = 0
+                method_state = None
+
+            save_resume_checkpoint(
+                args,
+                'domain_gen',
+                {
+                    'trial_idx': next_trial_idx,
+                    'next_domain_idx': next_domain_idx,
+                    'method_state': method_state,
+                    'domain_metric_state': capture_domain_metric_state(domain_infos),
+                    'adapt_time_all_corr': copy.deepcopy(adapt_time_all_corr),
+                    'eval_time_all_corr': copy.deepcopy(eval_time_all_corr),
+                }
+            )
+
     for domain_info in domain_infos:
         corruption = domain_info['corruption']
         miou_mean = np.array(domain_info['miou_seeds']).mean()
@@ -777,6 +1043,8 @@ def run_domain_gen(args, device, start_time, all_results_path):
         f.write(f"\nGPU: {gpu_info}\n")
         f.write(f"Total Duration (s): {total_duration:.2f}\n")
         f.write(f"Mean Duration per Seed (s): {mean_duration_per_seed:.2f}\n")
+
+    clear_resume_checkpoint(args)
 
 
 def process_single_batch_no_adapt(args, device, adapt_method, data, domain_info):
@@ -951,6 +1219,7 @@ def run_lifelong(args, device, start_time, all_results_path):
     domain_summary = []
     adapt_time_all_corr = []
     eval_time_all_corr = []
+    resume_state = load_resume_checkpoint(args, 'lifelong_pround')
     round_summary = [
         {
             'mIoU': [],
@@ -966,25 +1235,57 @@ def run_lifelong(args, device, start_time, all_results_path):
 
     args.classes = domain_infos[0]['classes']
     domain_map = {domain_info['corruption']: domain_info for domain_info in domain_infos}
+    restore_domain_metric_state(domain_infos, resume_state['domain_metric_state'] if resume_state else None)
+    if resume_state is not None:
+        round_summary = copy.deepcopy(resume_state['round_summary'])
+        adapt_time_all_corr = copy.deepcopy(resume_state['adapt_time_all_corr'])
+        eval_time_all_corr = copy.deepcopy(resume_state['eval_time_all_corr'])
 
     continual_methods = None
     if args.reset_mode == 'continual':
         continual_methods = [get_method(args, device) for _ in range(args.trials)]
 
-    for t in range(args.trials):
+    start_trial_idx = resume_state['trial_idx'] if resume_state else 0
+    start_round_idx = resume_state['round_idx'] if resume_state else 0
+    start_domain_idx = resume_state['next_domain_idx'] if resume_state else 0
+    resume_trial_results = resume_state['trial_results'] if resume_state else None
+    resume_trial_loss_batch_report = resume_state['trial_loss_batch_report'] if resume_state else None
+    resume_trial_adapt_times = resume_state['trial_adapt_times'] if resume_state else None
+    resume_trial_eval_times = resume_state['trial_eval_times'] if resume_state else None
+    resume_trial_weights = resume_state['trial_weights'] if resume_state else None
+    resume_round_results = resume_state['round_results'] if resume_state else None
+    resume_method_state = resume_state['method_state'] if resume_state else None
+
+    for t in range(start_trial_idx, args.trials):
         if args.reset_mode == 'continual':
             adapt_method = continual_methods[t]
+            if t == start_trial_idx and resume_method_state is not None:
+                restore_method_state(adapt_method, resume_method_state)
         else:
             adapt_method = get_method(args, device)
+            if t == start_trial_idx and resume_method_state is not None:
+                restore_method_state(adapt_method, resume_method_state)
 
-        trial_results = {domain_info['corruption']: [] for domain_info in domain_infos}
-        trial_loss_batch_report = {domain_info['corruption']: [] for domain_info in domain_infos}
-        trial_adapt_times = {domain_info['corruption']: [] for domain_info in domain_infos}
-        trial_eval_times = {domain_info['corruption']: [] for domain_info in domain_infos}
-        trial_weights = {domain_info['corruption']: [] for domain_info in domain_infos}
+        if t == start_trial_idx and resume_trial_results is not None:
+            trial_results = copy.deepcopy(resume_trial_results)
+            trial_loss_batch_report = copy.deepcopy(resume_trial_loss_batch_report)
+            trial_adapt_times = copy.deepcopy(resume_trial_adapt_times)
+            trial_eval_times = copy.deepcopy(resume_trial_eval_times)
+            trial_weights = copy.deepcopy(resume_trial_weights)
+        else:
+            trial_results = {domain_info['corruption']: [] for domain_info in domain_infos}
+            trial_loss_batch_report = {domain_info['corruption']: [] for domain_info in domain_infos}
+            trial_adapt_times = {domain_info['corruption']: [] for domain_info in domain_infos}
+            trial_eval_times = {domain_info['corruption']: [] for domain_info in domain_infos}
+            trial_weights = {domain_info['corruption']: [] for domain_info in domain_infos}
 
-        for round_idx in range(args.lifelong_rnds):
-            round_results = {domain_info['corruption']: [] for domain_info in domain_infos}
+        trial_round_start_idx = start_round_idx if t == start_trial_idx else 0
+
+        for round_idx in range(trial_round_start_idx, args.lifelong_rnds):
+            if t == start_trial_idx and round_idx == trial_round_start_idx and resume_round_results is not None:
+                round_results = copy.deepcopy(resume_round_results)
+            else:
+                round_results = {domain_info['corruption']: [] for domain_info in domain_infos}
             print(f"\n===== Lifelong Round {round_idx + 1}/{args.lifelong_rnds} | Trial {t} =====")
 
             if args.lifelong == 'shuffle_domain_pround':
@@ -992,7 +1293,12 @@ def run_lifelong(args, device, start_time, all_results_path):
                 corruption_order = list(round_rng.permutation(args.corruptions_list))
                 print(f"Round {round_idx + 1} domain order: {' -> '.join(corruption_order)}")
 
-                for corruption in corruption_order:
+                domain_order_start_idx = start_domain_idx if t == start_trial_idx and round_idx == trial_round_start_idx else 0
+
+                for domain_order_idx, corruption in enumerate(corruption_order):
+                    if domain_order_idx < domain_order_start_idx:
+                        continue
+
                     domain_info = domain_map[corruption]
 
                     if args.reset_mode == 'normal':
@@ -1020,6 +1326,27 @@ def run_lifelong(args, device, start_time, all_results_path):
                         trial_adapt_times[corruption].extend(adapt_times)
                         trial_eval_times[corruption].extend(eval_times)
                         trial_weights[corruption].extend(weights)
+
+                    save_resume_checkpoint(
+                        args,
+                        'lifelong_pround',
+                        {
+                            'trial_idx': t,
+                            'round_idx': round_idx,
+                            'next_domain_idx': domain_order_idx + 1,
+                            'method_state': capture_method_state(adapt_method) if args.reset_mode == 'continual' else None,
+                            'trial_results': copy.deepcopy(trial_results),
+                            'trial_loss_batch_report': copy.deepcopy(trial_loss_batch_report),
+                            'trial_adapt_times': copy.deepcopy(trial_adapt_times),
+                            'trial_eval_times': copy.deepcopy(trial_eval_times),
+                            'trial_weights': copy.deepcopy(trial_weights),
+                            'round_results': copy.deepcopy(round_results),
+                            'round_summary': copy.deepcopy(round_summary),
+                            'domain_metric_state': capture_domain_metric_state(domain_infos),
+                            'adapt_time_all_corr': copy.deepcopy(adapt_time_all_corr),
+                            'eval_time_all_corr': copy.deepcopy(eval_time_all_corr),
+                        }
+                    )
 
             elif args.lifelong == 'shuffle_domain_pbatch':
                 iterators = {domain_info['corruption']: iter(domain_info['data_loader']) for domain_info in domain_infos}
@@ -1229,6 +1556,8 @@ def run_lifelong(args, device, start_time, all_results_path):
         f.write(f"\nGPU: {gpu_info}\n")
         f.write(f"Total Duration (s): {total_duration:.2f}\n")
         f.write(f"Mean Duration per Seed (s): {mean_duration_per_seed:.2f}\n")
+
+    clear_resume_checkpoint(args)
 
 
 

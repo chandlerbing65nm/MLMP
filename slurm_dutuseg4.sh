@@ -9,7 +9,7 @@
 #SBATCH --partition=small-g
 #SBATCH --time=24:00:00
 #SBATCH --account=project_465002853
-#SBATCH --output=logs/voc20/output_%j.txt
+#SBATCH --output=logs/dutuseg4/output_%j.txt
 
 # Use node-local scratch for MIOpen DB (avoid Lustre/NFS locking issues)
 MIOPEN_LOCAL="${SLURM_TMPDIR:-${TMPDIR:-/tmp}}/${USER}/miopen-${SLURM_JOB_ID}"
@@ -31,27 +31,26 @@ export HF_HUB_DISABLE_TELEMETRY=1
 
 cd /flash/project_465002853/projects/mlmp
 
-mkdir -p logs/voc20
+mkdir -p logs/dutuseg4
 
 # # ========== SOURCE ==========
 # python main.py \
 #     --ovss_type naclip \
 #     --ovss_backbone ViT-L/14 \
-#     --save_dir .save/PascalVOC20Dataset/No_Adaptation/ \
-#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
-#     --dataset PascalVOC20Dataset \
+#     --save_dir .save/DUTUSEG4Dataset/No_Adaptation/ \
+#     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
+#     --dataset DUTUSEG4Dataset \
 #     --workers 4 \
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
+#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
 #     --steps 1 \
 #     --batch-size 1 \
 #     --trials 1 \
 #     --seed 0 \
-#     --class_extensions \
 #     --reset_mode continual \
-#     --domain_gen False \
+#     --domain_gen True \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \
@@ -62,14 +61,14 @@ mkdir -p logs/voc20
 #     --method tent \
 #     --ovss_type naclip \
 #     --ovss_backbone ViT-L/14 \
-#     --save_dir .save/PascalVOC20Dataset/tent/ \
-#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
-#     --dataset PascalVOC20Dataset \
+#     --save_dir .save/DUTUSEG4Dataset/tent/ \
+#     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
+#     --dataset DUTUSEG4Dataset \
 #     --workers 4 \
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
+#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
 #     --lr 1e-5 \
 #     --optimizer sgd  \
 #     --steps 1 \
@@ -77,9 +76,8 @@ mkdir -p logs/voc20
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
-#     --class_extensions \
 #     --reset_mode continual \
-#     --domain_gen False \
+#     --domain_gen True \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \
@@ -93,28 +91,26 @@ mkdir -p logs/voc20
 #     --watt_m 5 \
 #     --ovss_type naclip \
 #     --ovss_backbone ViT-L/14 \
-#     --save_dir .save/PascalVOC20Dataset/watt/ \
-#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
-#     --dataset PascalVOC20Dataset \
+#     --save_dir .save/DUTUSEG4Dataset/watt/ \
+#     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
+#     --dataset DUTUSEG4Dataset \
 #     --workers 4 \
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
-#     --lr 1e-5 \
+#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-6 \
 #     --optimizer sgd  \
 #     --steps 1 \
 #     --batch-size 1 \
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
-#     --class_extensions \
 #     --reset_mode continual \
-#     --domain_gen False \
+#     --domain_gen True \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \
-#     --resume_tta
 
 # # ========== CLIPArTT ==========
 # python main.py \
@@ -123,14 +119,14 @@ mkdir -p logs/voc20
 #     --clipartt_k 3 \
 #     --ovss_type naclip \
 #     --ovss_backbone ViT-L/14 \
-#     --save_dir .save/PascalVOC20Dataset/clipartt/ \
-#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
-#     --dataset PascalVOC20Dataset \
+#     --save_dir .save/DUTUSEG4Dataset/clipartt/ \
+#     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
+#     --dataset DUTUSEG4Dataset \
 #     --workers 4 \
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
+#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
 #     --lr 1e-6 \
 #     --optimizer adamw  \
 #     --steps 1 \
@@ -138,9 +134,8 @@ mkdir -p logs/voc20
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
-#     --class_extensions \
 #     --reset_mode continual \
-#     --domain_gen False \
+#     --domain_gen True \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \
@@ -154,14 +149,14 @@ mkdir -p logs/voc20
 #     --alpha_cls 1.0 \
 #     --ovss_type naclip \
 #     --ovss_backbone ViT-L/14 \
-#     --save_dir .save/PascalVOC20Dataset/mlmp/ \
-#     --data_dir /scratch/project_465002853/datasets/VOCdevkit/VOC2012/ \
-#     --dataset PascalVOC20Dataset \
+#     --save_dir .save/DUTUSEG4Dataset/mlmp/ \
+#     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
+#     --dataset DUTUSEG4Dataset \
 #     --workers 4 \
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise shot_noise impulse_noise defocus_blur glass_blur motion_blur zoom_blur snow frost fog brightness contrast elastic_transform pixelate jpeg_compression \
+#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
 #     --lr 1e-5 \
 #     --optimizer sgd  \
 #     --steps 1 \
@@ -169,9 +164,8 @@ mkdir -p logs/voc20
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
-#     --class_extensions \
 #     --reset_mode continual \
-#     --domain_gen False \
+#     --domain_gen True \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \

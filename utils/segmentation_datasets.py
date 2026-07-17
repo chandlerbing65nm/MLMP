@@ -349,6 +349,119 @@ class PascalContext59Dataset(BaseSegDataset):
             **kwargs)
 
 
+@DATASETS.register_module()
+class SUIM6Dataset(BaseSegDataset):
+    METAINFO = dict(
+        classes=(
+            'background',
+            'human_divers',
+            'wrecks_ruins',
+            'robots_instruments',
+            'reefs_invertebrates',
+            'fish_vertebrates',
+        ),
+        palette=[[0, 0, 0], [0, 0, 255], [0, 255, 255], [255, 0, 0], [255, 0, 255], [255, 255, 0]],
+    )
+
+    class_extensions = None
+    extentions_to_real_class_idx = None
+
+    def __init__(self,
+                 img_suffix='.jpg',
+                 seg_map_suffix='.bmp',
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            reduce_zero_label=False,
+            **kwargs)
+
+
+@DATASETS.register_module()
+class DUTUSEG5Dataset(BaseSegDataset):
+    METAINFO = dict(
+        classes=(
+            'background',
+            'sea_cucumber',
+            'sea_urchin',
+            'scallop',
+            'starfish',
+        ),
+        palette=[[0, 0, 0], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]],
+    )
+
+    class_extensions = None
+    extentions_to_real_class_idx = None
+
+    def __init__(self,
+                 ann_file,
+                 img_suffix='.jpg',
+                 seg_map_suffix='.png',
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            ann_file=ann_file,
+            reduce_zero_label=False,
+            **kwargs)
+
+
+@DATASETS.register_module()
+class DUTUSEG4Dataset(BaseSegDataset):
+    METAINFO = dict(
+        classes=(
+            'sea_cucumber',
+            'sea_urchin',
+            'scallop',
+            'starfish',
+        ),
+        palette=[[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]],
+    )
+
+    class_extensions = None
+    extentions_to_real_class_idx = None
+
+    def __init__(self,
+                 ann_file,
+                 img_suffix='.jpg',
+                 seg_map_suffix='.png',
+                 reduce_zero_label=True,
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            ann_file=ann_file,
+            reduce_zero_label=reduce_zero_label,
+            **kwargs)
+
+
+@DATASETS.register_module()
+class SUIM5Dataset(BaseSegDataset):
+    METAINFO = dict(
+        classes=(
+            'human_divers',
+            'wrecks_ruins',
+            'robots_instruments',
+            'reefs_invertebrates',
+            'fish_vertebrates',
+        ),
+        palette=[[0, 0, 255], [0, 255, 255], [255, 0, 0], [255, 0, 255], [255, 255, 0]],
+    )
+
+    class_extensions = None
+    extentions_to_real_class_idx = None
+
+    def __init__(self,
+                 img_suffix='.jpg',
+                 seg_map_suffix='.bmp',
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            reduce_zero_label=False,
+            **kwargs)
+
+
 
 CLIP_MEAN = [122.7709, 116.7460, 104.0937]
 CLIP_STD  = [68.5005, 66.6322, 70.3232]
@@ -454,6 +567,56 @@ mm_pascalcontect60_cfg = {
 }    
 
 
+mm_suim6_cfg = {
+    'type': 'SUIM6Dataset',
+    'data_root': data_dir,
+    'data_prefix': {'img_path': 'test/images', 'seg_map_path': 'test/masks'},
+    'pipeline': [{'type': 'LoadImageFromFile'},
+                {'type': 'LoadSUIMAnnotations'},
+                {'type': 'ResizeAndPatchify', 'resize': resize, 'patch_size': patch_size, 'patch_stride': patch_stride},
+                {'type': 'ToTensorAndNormalize', 'mean': CLIP_MEAN, 'std': CLIP_STD},
+                ]
+}
+
+
+mm_suim5_cfg = {
+    'type': 'SUIM5Dataset',
+    'data_root': data_dir,
+    'data_prefix': {'img_path': 'test/images', 'seg_map_path': 'test/masks'},
+    'pipeline': [{'type': 'LoadImageFromFile'},
+                {'type': 'LoadSUIMAnnotations', 'drop_background': True},
+                {'type': 'ResizeAndPatchify', 'resize': resize, 'patch_size': patch_size, 'patch_stride': patch_stride},
+                {'type': 'ToTensorAndNormalize', 'mean': CLIP_MEAN, 'std': CLIP_STD},
+                ]
+}
+
+
+mm_dutuseg5_cfg = {
+    'type': 'DUTUSEG5Dataset',
+    'data_root': data_dir,
+    'data_prefix': {'img_path': 'JPEGImages', 'seg_map_path': 'SegmentationClass'},
+    'ann_file': 'ImageSets/val.txt',
+    'pipeline': [{'type': 'LoadImageFromFile'},
+                {'type': 'LoadAnnotations'},
+                {'type': 'ResizeAndPatchify', 'resize': resize, 'patch_size': patch_size, 'patch_stride': patch_stride},
+                {'type': 'ToTensorAndNormalize', 'mean': CLIP_MEAN, 'std': CLIP_STD},
+                ]
+}
+
+
+mm_dutuseg4_cfg = {
+    'type': 'DUTUSEG4Dataset',
+    'data_root': data_dir,
+    'data_prefix': {'img_path': 'JPEGImages', 'seg_map_path': 'SegmentationClass'},
+    'ann_file': 'ImageSets/val.txt',
+    'pipeline': [{'type': 'LoadImageFromFile'},
+                {'type': 'LoadAnnotations', 'reduce_zero_label': True},
+                {'type': 'ResizeAndPatchify', 'resize': resize, 'patch_size': patch_size, 'patch_stride': patch_stride},
+                {'type': 'ToTensorAndNormalize', 'mean': CLIP_MEAN, 'std': CLIP_STD},
+                ]
+}
+
+
 
 
 def prepare_data(dataset, data_dir, init_resize, patch_size, patch_stride, corruption="original", batch_size=128, num_workers=1, shuffle=True):
@@ -488,6 +651,14 @@ def prepare_data(dataset, data_dir, init_resize, patch_size, patch_stride, corru
         mm_config = copy.deepcopy(mm_pascalcontect59_cfg)
     elif dataset == "PascalContext60Dataset":
         mm_config = copy.deepcopy(mm_pascalcontect60_cfg)
+    elif dataset == "SUIM6Dataset":
+        mm_config = copy.deepcopy(mm_suim6_cfg)
+    elif dataset == "SUIM5Dataset":
+        mm_config = copy.deepcopy(mm_suim5_cfg)
+    elif dataset == "DUTUSEG5Dataset":
+        mm_config = copy.deepcopy(mm_dutuseg5_cfg)
+    elif dataset == "DUTUSEG4Dataset":
+        mm_config = copy.deepcopy(mm_dutuseg4_cfg)
     else:
         raise ValueError(f"Unknown dataset: {dataset}")
     
