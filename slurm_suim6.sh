@@ -3,7 +3,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --ntasks-per-node=1
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem-per-cpu=8G
 #SBATCH --gpus-per-node=1
 #SBATCH --nodes=1
 #SBATCH --partition=small-g
@@ -44,9 +44,9 @@ mkdir -p logs/suim6
 #     --init_resize 320 256 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --corruptions_list gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --reset_mode continual \
@@ -68,11 +68,11 @@ mkdir -p logs/suim6
 #     --init_resize 320 256 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
-#     --lr 1e-5 \
+#     --corruptions_list gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-3 \
 #     --optimizer sgd  \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
@@ -98,11 +98,11 @@ mkdir -p logs/suim6
 #     --init_resize 320 256 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
-#     --lr 1e-6 \
+#     --corruptions_list gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-3 \
 #     --optimizer sgd  \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
@@ -126,11 +126,11 @@ mkdir -p logs/suim6
 #     --init_resize 320 256 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
-#     --lr 1e-6 \
-#     --optimizer adamw  \
+#     --corruptions_list gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-3 \
+#     --optimizer sgd  \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
@@ -145,7 +145,7 @@ mkdir -p logs/suim6
 #     --adapt \
 #     --method mlmp \
 #     --prompt_dir prompts.yaml \
-#     --vision_outputs -1 -2 -3 -4 -5 -6 -7 -8 -9 -10 -11 -12 -13 -14 -15 -16 -17 -18 \
+#     --vision_outputs -1 -2 -3 -4 -5 -6 -7 -8 -9 \
 #     --alpha_cls 1.0 \
 #     --ovss_type naclip \
 #     --ovss_backbone ViT-L/14 \
@@ -156,11 +156,50 @@ mkdir -p logs/suim6
 #     --init_resize 320 256 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
-#     --lr 1e-5 \
+#     --corruptions_list gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-3 \
 #     --optimizer sgd  \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
+#     --trials 1 \
+#     --seed 0 \
+#     --plot_loss \
+#     --reset_mode continual \
+#     --domain_gen False \
+#     --domain_gen_num 5 \
+#     --lifelong None \
+#     --lifelong_rnds 3 \
+
+# # ========== METHOD ==========
+# python main.py \
+#     --adapt \
+#     --method method \
+#     --train_imag_norm True \
+#     --last_imag_k_norm 6 \
+#     --train_imag_attn False \
+#     --last_imag_k_attn 1 \
+#     --train_text_norm False \
+#     --last_text_k_norm 0 \
+#     --loss_ent True --lamb_ent 1.0 \
+#     --loss_div True --lamb_div 1.0 \
+#     --loss_aug_cons True --lamb_aug_cons 1.0 \
+#     --loss_src_cons False --lamb_src_cons 1.0 \
+#     --updownsample 1.0 \
+#     --prompt_average False \
+#     --ovss_type naclip \
+#     --ovss_backbone ViT-L/14 \
+#     --save_dir .save/SUIM6Dataset/tent/ \
+#     --data_dir /scratch/project_465002853/datasets/suim/SUIM/ \
+#     --dataset SUIM6Dataset \
+#     --workers 4 \
+#     --init_resize 320 256 \
+#     --patch_size 224 224 \
+#     --patch_stride 112 \
+#     --corruptions_list gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-3 \
+#     --optimizer sgd  \
+#     --steps 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \

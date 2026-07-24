@@ -36,7 +36,7 @@ mkdir -p logs/dutuseg4
 # # ========== SOURCE ==========
 # python main.py \
 #     --ovss_type naclip \
-#     --ovss_backbone ViT-L/14 \
+#     --ovss_backbone ViT-B/16 \
 #     --save_dir .save/DUTUSEG4Dataset/No_Adaptation/ \
 #     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
 #     --dataset DUTUSEG4Dataset \
@@ -44,13 +44,13 @@ mkdir -p logs/dutuseg4
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --corruptions_list gaussian_noise shot_noise impulse_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --reset_mode continual \
-#     --domain_gen True \
+#     --domain_gen False \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \
@@ -60,7 +60,7 @@ mkdir -p logs/dutuseg4
 #     --adapt \
 #     --method tent \
 #     --ovss_type naclip \
-#     --ovss_backbone ViT-L/14 \
+#     --ovss_backbone ViT-B/16 \
 #     --save_dir .save/DUTUSEG4Dataset/tent/ \
 #     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
 #     --dataset DUTUSEG4Dataset \
@@ -68,16 +68,16 @@ mkdir -p logs/dutuseg4
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
-#     --lr 1e-5 \
+#     --corruptions_list gaussian_noise shot_noise impulse_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-3 \
 #     --optimizer sgd  \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
 #     --reset_mode continual \
-#     --domain_gen True \
+#     --domain_gen False \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \
@@ -90,7 +90,7 @@ mkdir -p logs/dutuseg4
 #     --watt_l 2 \
 #     --watt_m 5 \
 #     --ovss_type naclip \
-#     --ovss_backbone ViT-L/14 \
+#     --ovss_backbone ViT-B/16 \
 #     --save_dir .save/DUTUSEG4Dataset/watt/ \
 #     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
 #     --dataset DUTUSEG4Dataset \
@@ -98,16 +98,16 @@ mkdir -p logs/dutuseg4
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
-#     --lr 1e-6 \
+#     --corruptions_list gaussian_noise shot_noise impulse_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-3 \
 #     --optimizer sgd  \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
 #     --reset_mode continual \
-#     --domain_gen True \
+#     --domain_gen False \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \
@@ -118,7 +118,7 @@ mkdir -p logs/dutuseg4
 #     --method clipartt \
 #     --clipartt_k 3 \
 #     --ovss_type naclip \
-#     --ovss_backbone ViT-L/14 \
+#     --ovss_backbone ViT-B/16 \
 #     --save_dir .save/DUTUSEG4Dataset/clipartt/ \
 #     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
 #     --dataset DUTUSEG4Dataset \
@@ -126,16 +126,16 @@ mkdir -p logs/dutuseg4
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
-#     --lr 1e-6 \
-#     --optimizer adamw  \
+#     --corruptions_list gaussian_noise shot_noise impulse_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-3 \
+#     --optimizer sgd  \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
 #     --reset_mode continual \
-#     --domain_gen True \
+#     --domain_gen False \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \
@@ -145,10 +145,10 @@ mkdir -p logs/dutuseg4
 #     --adapt \
 #     --method mlmp \
 #     --prompt_dir prompts.yaml \
-#     --vision_outputs -1 -2 -3 -4 -5 -6 -7 -8 -9 -10 -11 -12 -13 -14 -15 -16 -17 -18 \
+#     --vision_outputs -1 -2 -3 -4 -5 -6 -7 -8 -9 \
 #     --alpha_cls 1.0 \
 #     --ovss_type naclip \
-#     --ovss_backbone ViT-L/14 \
+#     --ovss_backbone ViT-B/16 \
 #     --save_dir .save/DUTUSEG4Dataset/mlmp/ \
 #     --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
 #     --dataset DUTUSEG4Dataset \
@@ -156,16 +156,51 @@ mkdir -p logs/dutuseg4
 #     --init_resize 224 224 \
 #     --patch_size 224 224 \
 #     --patch_stride 112 \
-#     --corruptions_list original gaussian_noise impulse_noise shot_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
-#     --lr 1e-5 \
+#     --corruptions_list gaussian_noise shot_noise impulse_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+#     --lr 1e-3 \
 #     --optimizer sgd  \
 #     --steps 1 \
-#     --batch-size 1 \
+#     --batch-size 8 \
 #     --trials 1 \
 #     --seed 0 \
 #     --plot_loss \
 #     --reset_mode continual \
-#     --domain_gen True \
+#     --domain_gen False \
 #     --domain_gen_num 5 \
 #     --lifelong None \
 #     --lifelong_rnds 3 \
+
+# ========== METHOD ==========
+python main.py \
+    --adapt \
+    --method method \
+    --train_imag_norm True \
+    --last_imag_k_norm 6 \
+    --train_text_norm False \
+    --last_text_k_norm 0 \
+    --loss_ent True --lamb_ent 1.0 \
+    --loss_div True --lamb_div 2.0 \
+    --loss_aug_cons False --lamb_aug_cons 1.0 \
+    --loss_src_cons True --lamb_src_cons 0.5 --cons_type for_kl \
+    --ovss_type naclip \
+    --ovss_backbone ViT-B/16 \
+    --save_dir .save/DUTUSEG4Dataset/method/ \
+    --data_dir /scratch/project_465002853/datasets/dut-useg/DUT-USEG/ \
+    --dataset DUTUSEG4Dataset \
+    --workers 4 \
+    --init_resize 224 224 \
+    --patch_size 224 224 \
+    --patch_stride 112 \
+    --corruptions_list gaussian_noise shot_noise impulse_noise defocus_blur motion_blur brightness contrast pixelate jpeg_compression \
+    --lr 1e-3 \
+    --optimizer sgd  \
+    --steps 1 \
+    --batch-size 8 \
+    --trials 1 \
+    --seed 0 \
+    --plot_loss \
+    --reset_mode continual \
+    --domain_gen False \
+    --domain_gen_num 5 \
+    --lifelong None \
+    --lifelong_rnds 3 \
